@@ -58,8 +58,8 @@ where customer_id = (
 returning customer_id;
 
 --Removing any records related to me (as a customer) from all tables except 'Customer' and 'Inventory'
-delete from rental where customer_id = (select customer_id from customer where first_name = 'Tamara' and last_name = 'Jovicic');
-delete from payment where customer_id = (select customer_id from customer where first_name = 'Tamara' and last_name = 'Jovicic');
+delete from payment where customer_id = (select customer_id from customer where upper(first_name) = upper('Tamara') and upper(last_name) = upper('Jovicic'));
+delete from rental where customer_id = (select customer_id from customer where upper(first_name) = upper('Tamara') and upper(last_name) = upper('Jovicic'));
 
 --Rent you favorite movies from the store they are in and pay for them (add corresponding records to the database to represent this activity)
 --(Note: to insert the payment_date into the table payment, 
