@@ -3,30 +3,26 @@
 -- that shows the film category and total sales revenue for the current quarter and year. 
 -- The view should only display categories with at least one sale in the current quarter. 
 -- Note: when the next quarter begins, it will be considered as the current quarter.
+-- I'm sorry for missunderstanding! Hope this works 
 
-CREATE OR REPLACE VIEW SALES_REVENUE_BY_CATEGORY_QTR AS
+CREATE OR REPLACE VIEW public.sales_revenue_by_category_qtr AS
 SELECT 
-    C.NAME AS CATEGORY_NAME,
-    SUM(P.AMOUNT) AS TOTAL_SALES_REVENUE
+    c.name AS category_name,
+    SUM(p.amount) AS total_sales_revenue
 FROM 
-    PAYMENT P
-JOIN 
-    RENTAL R ON P.RENTAL_ID = R.RENTAL_ID
-JOIN 
-    INVENTORY I ON R.INVENTORY_ID = I.INVENTORY_ID
-JOIN 
-    FILM F ON I.FILM_ID = F.FILM_ID
-JOIN 
-    FILM_CATEGORY FC ON F.FILM_ID = FC.FILM_ID
-JOIN 
-    CATEGORY C ON FC.CATEGORY_ID = C.CATEGORY_ID
+    public.payment p
+INNER JOIN public.rental r ON p.rental_id = r.rental_id
+INNER JOIN public.inventory i ON r.inventory_id = i.inventory_id
+INNER JOIN public.film f ON i.film_id = f.film_id
+INNER JOIN public.film_category fc ON f.film_id = fc.film_id
+INNER JOIN public.category c ON fc.category_id = c.category_id
 WHERE 
-    EXTRACT(QUARTER FROM P.PAYMENT_DATE) = EXTRACT(QUARTER FROM CURRENT_DATE)
-    AND EXTRACT(YEAR FROM P.PAYMENT_DATE) = EXTRACT(YEAR FROM CURRENT_DATE)
+    EXTRACT(QUARTER FROM p.payment_date) = EXTRACT(QUARTER FROM CURRENT_DATE) AND
+    EXTRACT(YEAR FROM p.payment_date) = EXTRACT(YEAR FROM CURRENT_DATE)
 GROUP BY 
-    C.NAME
+    c.name
 HAVING 
-    SUM(P.AMOUNT) > 0;
+    SUM(p.amount) > 0;
 
 
 
@@ -35,79 +31,68 @@ HAVING
 -- that accepts one parameter representing the current quarter and year 
 -- and returns the same result as the 'sales_revenue_by_category_qtr' view.
 
-CREATE OR REPLACE FUNCTION GET_SALES_REVENUE_BY_CATEGORY_QTR(CURRENT_QUARTER INT, CURRENT_YEAR INT)
-RETURNS TABLE(CATEGORY_NAME TEXT, TOTAL_SALES_REVENUE NUMERIC) AS $$
+CREATE OR REPLACE FUNCTION public.get_sales_revenue_by_category_qtr(current_quarter INT, current_year INT)
+RETURNS TABLE(category_name TEXT, total_sales_revenue NUMERIC) AS $$
 BEGIN
     RETURN QUERY
     SELECT 
-        C.NAME AS CATEGORY_NAME,
-        SUM(P.AMOUNT) AS TOTAL_SALES_REVENUE
+        c.name AS category_name,
+        SUM(p.amount) AS total_sales_revenue
     FROM 
-        PAYMENT P
-    JOIN 
-        RENTAL R ON P.RENTAL_ID = R.RENTAL_ID
-    JOIN 
-        INVENTORY I ON R.INVENTORY_ID = I.INVENTORY_ID
-    JOIN 
-        FILM F ON I.FILM_ID = F.FILM_ID
-    JOIN 
-        FILM_CATEGORY FC ON F.FILM_ID = FC.FILM_ID
-    JOIN 
-        CATEGORY C ON FC.CATEGORY_ID = C.CATEGORY_ID
+        public.payment p
+    INNER JOIN public.rental r ON p.rental_id = r.rental_id
+    INNER JOIN public.inventory i ON r.inventory_id = i.inventory_id
+    INNER JOIN public.film f ON i.film_id = f.film_id
+    INNER JOIN public.film_category fc ON f.film_id = fc.film_id
+    INNER JOIN public.category c ON fc.category_id = c.category_id
     WHERE 
-        EXTRACT(QUARTER FROM P.PAYMENT_DATE) = CURRENT_QUARTER 
-        AND EXTRACT(YEAR FROM P.PAYMENT_DATE) = CURRENT_YEAR
+        EXTRACT(QUARTER FROM p.payment_date) = current_quarter AND
+        EXTRACT(YEAR FROM p.payment_date) = current_year
     GROUP BY 
-        C.NAME
+        c.name
     HAVING 
-        SUM(P.AMOUNT) > 0;
+        SUM(p.amount) > 0;
 END;
-$$ LANGUAGE PLPGSQL;
+$$ LANGUAGE plpgsql;
+
 
 -- task 3. Create procedure language functions
 -- Create a function that takes a country as an input parameter and returns the most popular film in that specific country. 
 -- The function should format the result set as follows:
 -- Query (example):select * from core.most_popular_films_by_countries(array['Afghanistan','Brazil','United States’]);
 
-CREATE OR REPLACE FUNCTION MOST_POPULAR_FILMS_BY_COUNTRIES(COUNTRIES TEXT[])
-RETURNS TABLE(COUNTRY TEXT, FILM_ID INT, TITLE TEXT, RATING TEXT, LANGUAGE TEXT, LENGTH INT, RELEASE_YEAR INT, POPULARITY INT) AS $$
+CREATE OR REPLACE FUNCTION public.most_popular_films_by_countries(countries TEXT[])
+RETURNS TABLE(country TEXT, film_id INT, title TEXT, rating TEXT, language TEXT, length INT, release_year INT, popularity INT) AS $$
 BEGIN
     RETURN QUERY
     SELECT 
-        CO.NAME AS COUNTRY,
-        F.FILM_ID,
-        F.TITLE,
-        F.RATING,
-        L.NAME AS LANGUAGE,
-        F.LENGTH,
-        F.RELEASE_YEAR,
-        COUNT(*) AS POPULARITY
+        co.country AS country,
+        f.film_id,
+        f.title,
+        f.rating,
+        l.name AS language,
+        f.length,
+        f.release_year,
+        COUNT(*) AS popularity
     FROM 
-        PAYMENT P
-    JOIN 
-        RENTAL R ON P.RENTAL_ID = R.RENTAL_ID
-    JOIN 
-        INVENTORY I ON R.INVENTORY_ID = I.INVENTORY_ID
-    JOIN 
-        FILM F ON I.FILM_ID = F.FILM_ID
-    JOIN 
-        CUSTOMER CUST ON P.CUSTOMER_ID = CUST.CUSTOMER_ID
-    JOIN 
-        ADDRESS A ON CUST.ADDRESS_ID = A.ADDRESS_ID
-    JOIN 
-        CITY CT ON A.CITY_ID = CT.CITY_ID
-    JOIN 
-        COUNTRY CO ON CT.COUNTRY_ID = CO.COUNTRY_ID
-    JOIN 
-        LANGUAGE L ON F.LANGUAGE_ID = L.LANGUAGE_ID
+        public.payment p
+    INNER JOIN public.rental r ON p.rental_id = r.rental_id
+    INNER JOIN public.inventory i ON r.inventory_id = i.inventory_id
+    INNER JOIN public.film f ON i.film_id = f.film_id
+    INNER JOIN public.customer c ON p.customer_id = c.customer_id
+    INNER JOIN public.address a ON c.address_id = a.address_id
+    INNER JOIN public.city ci ON a.city_id = ci.city_id
+    INNER JOIN public.country co ON ci.country_id = co.country_id
+    INNER JOIN public.language l ON f.language_id = l.language_id
     WHERE 
-        CO.NAME = ANY(COUNTRIES)
+        LOWER(co.country) = ANY (SELECT LOWER(x) FROM unnest(countries) AS x)
     GROUP BY 
-        CO.NAME, F.FILM_ID, F.TITLE, F.RATING, L.NAME, F.LENGTH, F.RELEASE_YEAR
+        co.country, f.film_id, f.title, f.rating, l.name, f.length, f.release_year
     ORDER BY 
-        POPULARITY DESC;
+        popularity DESC;
 END;
-$$ LANGUAGE PLPGSQL;
+$$ LANGUAGE plpgsql;
+
 
 
 -- task 4. Create procedure language functions
@@ -119,45 +104,32 @@ $$ LANGUAGE PLPGSQL;
 -- (note: the 'row_num' field is an automatically generated counter field, starting from 1 and incrementing for each entry, e.g., 1, 2, ..., 100, 101, ...).
 -- Query (example):select * from core.films_in_stock_by_title('%love%’);
 
-CREATE OR REPLACE FUNCTION FILMS_IN_STOCK_BY_TITLE(PARTIAL_TITLE TEXT)
-RETURNS TABLE(ROW_NUM INT, FILM_ID INT, TITLE TEXT, LANGUAGE TEXT, CUSTOMER_NAME TEXT, RENTAL_DATE DATE) AS $$
-DECLARE
-    MOVIE RECORD;
-    ROW_NUMBER INT := 0;
+CREATE OR REPLACE FUNCTION public.films_in_stock_by_title(partial_title TEXT)
+RETURNS TABLE(row_num INT, film_id INT, title TEXT, language TEXT) AS $$
 BEGIN
-    FOR MOVIE IN
-        SELECT 
-            F.FILM_ID,
-            F.TITLE,
-            L.NAME AS LANGUAGE,
-            C.FIRST_NAME || ' ' || C.LAST_NAME AS CUSTOMER_NAME,
-            R.RENTAL_DATE
-        FROM 
-            FILM F
-        JOIN 
-            INVENTORY I ON F.FILM_ID = I.FILM_ID
-        JOIN 
-            LANGUAGE L ON F.LANGUAGE_ID = L.LANGUAGE_ID
-        LEFT JOIN 
-            RENTAL R ON I.INVENTORY_ID = R.INVENTORY_ID
-        LEFT JOIN 
-            CUSTOMER C ON R.CUSTOMER_ID = C.CUSTOMER_ID
-        WHERE 
-            F.TITLE ILIKE PARTIAL_TITLE
-            AND I.INVENTORY_ID NOT IN (
-                SELECT INVENTORY_ID FROM RENTAL WHERE RETURN_DATE IS NULL
-            )
-    LOOP
-        ROW_NUMBER := ROW_NUMBER + 1;
-        ROW_NUM := ROW_NUMBER;
-        RETURN NEXT MOVIE;
-    END LOOP;
-
-    IF ROW_NUMBER = 0 THEN
-        RAISE EXCEPTION 'NO MOVIES FOUND MATCHING TITLE: %', PARTIAL_TITLE;
+    RETURN QUERY
+    SELECT 
+        ROW_NUMBER() OVER (ORDER BY f.title) AS row_num,
+        f.film_id,
+        f.title,
+        l.name AS language
+    FROM 
+        public.film f
+    INNER JOIN public.language l ON f.language_id = l.language_id
+    WHERE 
+        f.title ILIKE partial_title
+        AND EXISTS (
+            SELECT 1
+            FROM public.inventory i
+            WHERE i.film_id = f.film_id
+        );
+        
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'No movies found matching title: %', partial_title;
     END IF;
 END;
-$$ LANGUAGE PLPGSQL;
+$$ LANGUAGE plpgsql;
+
     
 
 -- task 5. Create procedure language functions
@@ -170,24 +142,32 @@ $$ LANGUAGE PLPGSQL;
 -- the language exists in the 'language' table. 
 -- Then, ensure that no such function has been created before; if so, replace it.
 
-CREATE OR REPLACE FUNCTION NEW_MOVIE(MOVIE_TITLE TEXT, RELEASE_YEAR INT DEFAULT EXTRACT(YEAR FROM CURRENT_DATE), LANGUAGE TEXT DEFAULT 'KLINGON')
+CREATE OR REPLACE FUNCTION public.new_movie(
+    movie_title TEXT,
+    release_year INT DEFAULT EXTRACT(YEAR FROM CURRENT_DATE),
+    language TEXT DEFAULT 'Klingon'
+)
 RETURNS VOID AS $$
 DECLARE
-    LANG_ID INT;
+    lang_id INT;
 BEGIN
-    SELECT LANGUAGE_ID INTO LANG_ID FROM LANGUAGE WHERE NAME = LANGUAGE;
+    -- Check language
+    SELECT language_id INTO lang_id FROM public.language WHERE LOWER(name) = LOWER(language);
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'LANGUAGE % DOES NOT EXIST', LANGUAGE;
+        RAISE EXCEPTION 'Language "%" does not exist.', language;
     END IF;
 
+    -- Check for duplicate
     IF EXISTS (
-        SELECT 1 FROM FILM WHERE TITLE = MOVIE_TITLE AND RELEASE_YEAR = RELEASE_YEAR
+        SELECT 1 FROM public.film 
+        WHERE LOWER(title) = LOWER(movie_title) AND release_year = release_year
     ) THEN
-        RAISE EXCEPTION 'MOVIE WITH THE TITLE % ALREADY EXISTS', MOVIE_TITLE;
+        RAISE EXCEPTION 'Movie "%" already exists for year %.', movie_title, release_year;
     END IF;
 
-    INSERT INTO FILM (TITLE, RENTAL_RATE, RENTAL_DURATION, REPLACEMENT_COST, RELEASE_YEAR, LANGUAGE_ID)
-    VALUES (MOVIE_TITLE, 4.99, 3, 19.99, RELEASE_YEAR, LANG_ID);
+    -- Insert movie
+    INSERT INTO public.film (title, rental_rate, rental_duration, replacement_cost, release_year, language_id)
+    VALUES (movie_title, 4.99, 3, 19.99, release_year, lang_id);
 END;
-$$ LANGUAGE PLPGSQL;
+$$ LANGUAGE plpgsql;
 
