@@ -11,6 +11,7 @@
 
 --Calculated total sales amount per customer per sales channel
 WITH sales_by_customer_channel AS (
+    -- Calculated total sales per customer and channel
     SELECT 
         s.cust_id,
         cu.cust_first_name,
@@ -22,7 +23,8 @@ WITH sales_by_customer_channel AS (
     JOIN channels c ON s.channel_id = c.channel_id
     GROUP BY s.cust_id, cu.cust_first_name, cu.cust_last_name, c.channel_desc
 ),
---Calculated total sales amount per sales channel
+
+-- Calculated total sales per sales channel
 channel_totals AS (
     SELECT 
         c.channel_desc,
@@ -31,7 +33,8 @@ channel_totals AS (
     JOIN channels c ON s.channel_id = c.channel_id
     GROUP BY c.channel_desc
 ),
---Added a calculated sales percentage per customer within their channel
+
+-- Added a calculated sales percentage per customer within their respective channel
 sales_with_percentage AS (
     SELECT 
         scc.cust_id,
@@ -39,11 +42,13 @@ sales_with_percentage AS (
         scc.cust_last_name,
         scc.channel_desc,
         scc.total_sales,
+        -- Calculated percentage of total sales for the customer within the channel
         ROUND((scc.total_sales / ct.channel_total_sales) * 100, 4) AS sales_pct
     FROM sales_by_customer_channel scc
     JOIN channel_totals ct ON scc.channel_desc = ct.channel_desc
 ),
---Counted how many customers have equal or greater sales in the same channel
+
+-- Ranked customers by their total sales in the same channel
 ranked AS (
     SELECT 
         a.*,
@@ -55,7 +60,8 @@ ranked AS (
     GROUP BY 
         a.cust_id, a.cust_first_name, a.cust_last_name, a.channel_desc, a.total_sales, a.sales_pct
 )
---Selected only the top 5 customers per channel, format columns
+
+-- Selected only the top 5 customers per channel and formatted the columns
 SELECT 
     channel_desc,
     cust_last_name,
@@ -66,6 +72,7 @@ FROM ranked
 WHERE rank_in_channel <= 5
 ORDER BY channel_desc, total_sales DESC;
 
+
 --Create a query to retrieve data for a report that displays the total sales for all 
 --products in the Photo category in the Asian region for the year 2000. 
 --Calculate the overall report total and name it 'YEAR_SUM'
@@ -73,43 +80,41 @@ ORDER BY channel_desc, total_sales DESC;
 --Display the result in descending order of 'YEAR_SUM'
 --For this report, consider exploring the use of the crosstab function. 
 CREATE EXTENSION IF NOT EXISTS tablefunc;
---Generated a pivoted quarterly report for Photo category in Asia for year 2000
-SELECT *, 
---Calculated the total yearly sales (year_sum) by summing up sales from all four quarters
---Used COALESCE to replace NULL values with 0 to avoid issues with summing NULLs.
-  ROUND(COALESCE(q1,0) + COALESCE(q2,0) + COALESCE(q3,0) + COALESCE(q4,0), 2) AS year_sum
+
+-- Quarterly pivot report for the 'Photo' category in the 'Asia' region for the year 2000
+SELECT 
+  prod_name,
+  COALESCE(q1, 0) AS q1,
+  COALESCE(q2, 0) AS q2,
+  COALESCE(q3, 0) AS q3,
+  COALESCE(q4, 0) AS q4,
+  -- Calculate the total annual sales (year_sum) by summing all quarters
+  ROUND(COALESCE(q1, 0) + COALESCE(q2, 0) + COALESCE(q3, 0) + COALESCE(q4, 0), 2) AS year_sum
 FROM crosstab(
   $$
---The query retrieves sales data, groups it by product and quarter, 
---and calculates the sum of sales for each quarter.
+  -- Get sales per product and classify months into quarters
   SELECT 
     p.prod_name,
---Classified the calendar month into the corresponding quarter
     CASE 
-      WHEN t.calendar_month_number BETWEEN 1 AND 3 THEN 'q1'  -- First quarter
-      WHEN t.calendar_month_number BETWEEN 4 AND 6 THEN 'q2'  -- Second quarter
-      WHEN t.calendar_month_number BETWEEN 7 AND 9 THEN 'q3'  -- Third quarter
-      WHEN t.calendar_month_number BETWEEN 10 AND 12 THEN 'q4' -- Fourth quarter
+      WHEN t.calendar_month_number BETWEEN 1 AND 3 THEN 'q1'
+      WHEN t.calendar_month_number BETWEEN 4 AND 6 THEN 'q2'
+      WHEN t.calendar_month_number BETWEEN 7 AND 9 THEN 'q3'
+      WHEN t.calendar_month_number BETWEEN 10 AND 12 THEN 'q4'
     END AS quarter,
     ROUND(SUM(s.amount_sold)::numeric, 2) AS quarterly_sum
-  FROM sales s
---Joined with the products table to get product details
-  JOIN products p ON s.prod_id = p.prod_id
---Joined with the customers table to get customer information
-  JOIN customers c ON s.cust_id = c.cust_id
---Joined with the countries table to filter by region
-  JOIN countries ctr ON c.country_id = ctr.country_id
---Joined with the times table to filter by year and month
-  JOIN times t ON s.time_id = t.time_id
---Applied filters: 'Photo' category, 'Asia' region, and year 2000
+  FROM sh.sales s
+  INNER JOIN sh.products p ON s.prod_id = p.prod_id
+  INNER JOIN sh.customers c ON s.cust_id = c.cust_id
+  INNER JOIN sh.countries ctr ON c.country_id = ctr.country_id
+  INNER JOIN sh.times t ON s.time_id = t.time_id
+  -- Filter by product category, region, and year
   WHERE p.prod_category = 'Photo'
     AND ctr.country_subregion = 'Asia'
     AND t.calendar_year = 2000
---Group by product name and quarter to prepare for pivoting in crosstab
   GROUP BY p.prod_name, quarter
   ORDER BY p.prod_name, quarter
   $$,
---Defined the expected order of quarters for the crosstab output (q1, q2, q3, q4)
+  -- Define the expected quarters to ensure correct pivoting
   $$ VALUES ('q1'), ('q2'), ('q3'), ('q4') $$
 ) AS pivot (
   prod_name text,
@@ -118,7 +123,7 @@ FROM crosstab(
   q3 numeric,
   q4 numeric
 )
---Sorted the final result by the total yearly sales (year_sum) in descending order
+-- Sort the results by total yearly sales in descending order
 ORDER BY year_sum DESC;
 
 
@@ -136,18 +141,19 @@ ORDER BY year_sum DESC;
 
 --Filter sales for the years of interest and join with time info
 WITH sales_with_year AS (
+  -- Filter sales for the years 1998, 1999, and 2001 only
   SELECT 
     s.cust_id,
     s.channel_id,
     s.amount_sold,
     t.calendar_year
-  FROM sales s
-  JOIN times t ON s.time_id = t.time_id
+  FROM sh.sales s
+  INNER JOIN sh.times t ON s.time_id = t.time_id
   WHERE t.calendar_year IN (1998, 1999, 2001)
 ),
 
---Calculated total sales per customer per year and channel
 customer_sales AS (
+  -- Calculate total sales per customer, channel, and year
   SELECT 
     swy.cust_id,
     swy.channel_id,
@@ -157,32 +163,43 @@ customer_sales AS (
   GROUP BY swy.cust_id, swy.channel_id, swy.calendar_year
 ),
 
---Ranked customers by total sales per channel and year
 ranked_sales AS (
+  -- Rank customers by total sales within each channel and year
   SELECT 
     cs.*,
     RANK() OVER (PARTITION BY cs.channel_id, cs.calendar_year ORDER BY cs.total_sales DESC) AS sales_rank
   FROM customer_sales cs
 ),
 
---Kept only the top 300 customers per channel and year
-top_customers AS (
+top_per_year AS (
+  -- Keep only the top 300 customers per channel and year
   SELECT *
   FROM ranked_sales
   WHERE sales_rank <= 300
+),
+
+qualified_customers AS (
+  -- Customers who were in the top 300 for all three years within the same channel
+  SELECT cust_id, channel_id
+  FROM top_per_year
+  GROUP BY cust_id, channel_id
+  HAVING COUNT(DISTINCT calendar_year) = 3
 )
 
---Final result with customer and channel details
+-- Final result: total sales for those qualified customers, grouped by channel
 SELECT 
   ch.channel_desc,
   cu.cust_id,
   cu.cust_last_name,
   cu.cust_first_name,
-  ROUND(tc.total_sales::numeric, 2) AS amount_sold
-FROM top_customers tc
-JOIN customers cu ON tc.cust_id = cu.cust_id
-JOIN channels ch ON tc.channel_id = ch.channel_id
+  ROUND(SUM(tp.total_sales)::numeric, 2) AS amount_sold
+FROM top_per_year tp
+INNER JOIN qualified_customers qc ON tp.cust_id = qc.cust_id AND tp.channel_id = qc.channel_id
+INNER JOIN sh.customers cu ON tp.cust_id = cu.cust_id
+INNER JOIN sh.channels ch ON tp.channel_id = ch.channel_id
+GROUP BY ch.channel_desc, cu.cust_id, cu.cust_last_name, cu.cust_first_name
 ORDER BY ch.channel_desc, amount_sold DESC;
+
 
 --Create a query to generate a sales report for January 2000, February 2000, and 
 --March 2000 specifically for the Europe and Americas regions.
@@ -196,22 +213,22 @@ FROM crosstab(
     p.prod_category,
     ctr.country_region,
     ROUND(SUM(s.amount_sold)::numeric, 2) AS total_sales
-  FROM sales s
-  JOIN products p ON s.prod_id = p.prod_id
-  JOIN times t ON s.time_id = t.time_id
-  JOIN customers c ON s.cust_id = c.cust_id
-  JOIN countries ctr ON c.country_id = ctr.country_id
+  FROM sh.sales s
+  INNER JOIN sh.products p ON s.prod_id = p.prod_id
+  INNER JOIN sh.times t ON s.time_id = t.time_id
+  INNER JOIN sh.customers c ON s.cust_id = c.cust_id
+  INNER JOIN sh.countries ctr ON c.country_id = ctr.country_id
   WHERE t.calendar_year = 2000
     AND t.calendar_month_number IN (1, 2, 3)
     AND ctr.country_region IN ('Europe', 'Americas')
   GROUP BY t.calendar_month_desc, p.prod_category, ctr.country_region
-  ORDER BY 1, 2
+  ORDER BY t.calendar_month_desc, p.prod_category
   $$,
   $$ VALUES ('Americas'), ('Europe') $$
 ) AS pivot_table (
   calendar_month_desc text,
   prod_category text,
-  "American SALES" numeric,
-  "Europe SALES" numeric
+  "Americas Sales" numeric,
+  "Europe Sales" numeric
 )
 ORDER BY calendar_month_desc, prod_category;
