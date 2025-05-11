@@ -34,7 +34,7 @@ WITH sales_data AS (
 total_sales_per_year AS (
   SELECT
     t.calendar_year,
-    co.country_region,  -- Promenjeno u country_region
+    co.country_region,  
     SUM(s.amount_sold) AS total_sales
   FROM sales s
   JOIN times t ON s.time_id = t.time_id
@@ -70,9 +70,9 @@ SELECT
   sp.country_region,
   sp.channel_desc,
   sp.amount_sold,
-  CONCAT(ROUND(sp.percent_by_channels, 2), '%') AS "% BY CHANNELS",  -- Dodajemo simbol '%'
-  CONCAT(ROUND(COALESCE(pys.percent_previous_period, 0), 2), '%') AS "% PREVIOUS PERIOD",  -- Dodajemo simbol '%'
-  CONCAT(ROUND(sp.percent_by_channels - COALESCE(pys.percent_previous_period, 0), 2), '%') AS "% DIFF"  -- Dodajemo simbol '%'
+  CONCAT(ROUND(sp.percent_by_channels, 2), '%') AS "% BY CHANNELS",  
+  CONCAT(ROUND(COALESCE(pys.percent_previous_period, 0), 2), '%') AS "% PREVIOUS PERIOD", 
+  CONCAT(ROUND(sp.percent_by_channels - COALESCE(pys.percent_previous_period, 0), 2), '%') AS "% DIFF"  
 FROM sales_percentage sp
 LEFT JOIN previous_year_sales pys
   ON sp.calendar_year = pys.calendar_year
